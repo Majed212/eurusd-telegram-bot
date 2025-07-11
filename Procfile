@@ -1,1 +1,1 @@
-web: python eurusd_ai_server.py
+web: python main.py
