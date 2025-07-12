@@ -1,0 +1,52 @@
+import logging
+import datetime
+import requests
+from telegram.ext import Updater, CommandHandler
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+TOKEN = '8162123139:AAEeIFt8Wz8TQYAgkCfhJUZGImlZM5-uCOM'
+
+price_memory = []
+
+def fetch_eurusd_price():
+    try:
+        response = requests.get('http://127.0.0.1:5005/eurusd', timeout=5)
+        data = response.json()
+        if 'price' not in data:
+            raise ValueError("لا يوجد 'price' في الرد")
+        return round(data['price'], 5)
+    except Exception as e:
+        print("❌ خطأ في جلب السعر:", e)
+        return None
+
+def learn_and_predict():
+    if len(price_memory) < 5:
+        return "📊 النموذج لم يتعلم بما فيه الكفاية بعد لتحليل EUR/USD."
+    avg = sum(price_memory[-5:-1]) / 4
+    trend = "🔼 صعود متوقع" if price_memory[-1] > avg else "🔻 هبوط متوقع"
+    return trend
+
+def start(update, context):
+    update.message.reply_text("👋 أهلاً بك في بوت تحليل EUR/USD.\nاكتب /analyze للحصول على التحليل اللحظي.")
+
+def analyze(update, context):
+    now = datetime.datetime.now().strftime("%H:%M:%S")
+    price = fetch_eurusd_price()
+    if price:
+        price_memory.append(price)
+        if len(price_memory) > 100:
+            price_memory.pop(0)
+        trend = learn_and_predict()
+        update.message.reply_text(
+            f"🕒 التوقيت: {now}\n💶 EUR/USD: {price}\n🤖 التوقع: {trend}"
+        )
+    else:
+        update.message.reply_text("❌ تعذر الحصول على السعر اللحظي حالياً.")
+
+updater = Updater(token=TOKEN, use_context=True)
+dp = updater.dispatcher
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(CommandHandler("analyze", analyze))
+updater.start_polling()
+updater.idle()
